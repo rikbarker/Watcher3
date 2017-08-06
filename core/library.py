@@ -352,19 +352,30 @@ class ImportCPLibrary(object):
             if m['info']['imdb'] in library:
                 logging.debug('{} in library, skipping.'.format(m['info']['original_title']))
                 continue
+
             logging.debug('Parsing CouchPotato movie {}'.format(m['info']['original_title']))
             movie = {}
             if m['status'] == 'done':
                 movie['status'] = 'Disabled'
                 for i in m['releases']:
                     if i['status'] == 'done':
-                        name = i['info']['name']
+
+                        # handle missing keys - not all CP entries have all fields populated
+                        try:
+                            name = i['info']['name']
+                        except Exception as e:
+                            name = m['info']['original_title'] 
+
                         title_data = PTN.parse(name)
 
                         movie['audiocodec'] = title_data.get('audio')
                         movie['videocodec'] = title_data.get('codec')
 
-                        movie['size'] = i['info']['size'] * 1024 * 1024
+                        try:
+                            movie['size'] = i['info']['size'] * 1024 * 1024
+                        except Exception as e:
+                            movie['size'] = 0
+
                         if '4K' in name or 'UHD' in name or '2160P' in name:
                             movie['resolution'] = 'BluRay-4K'
                         elif '1080' in name:
@@ -383,18 +394,51 @@ class ImportCPLibrary(object):
 
             movie['title'] = m['info']['original_title']
             movie['year'] = m['info']['year']
-            movie['overview'] = m['info']['plot']
-            movie['poster_path'] = '/{}'.format(m['info']['images']['poster_original'][0].split('/')[-1])
-            movie['url'] = 'https://www.themoviedb.org/movie/{}'.format(m['info']['tmdb_id'])
-            movie['vote_average'] = m['info']['rating']['imdb'][0]
-            movie['imdbid'] = m['info']['imdb']
-            movie['id'] = m['info']['tmdb_id']
-            movie['release_date'] = m['info']['released']
-            movie['alternative_titles'] = {'titles': [{'iso_3166_1': 'US',
+
+            try:
+                movie['overview'] = m['info']['plot']
+            except Exception:
+                movie['overview'] = ''
+
+            try:
+                movie['poster_path'] = '/{}'.format(m['info']['images']['poster_original'][0].split('/')[-1])
+            except Exception:
+                movie['poster_path'] = ''
+
+            try:
+                movie['url'] = 'https://www.themoviedb.org/movie/{}'.format(m['info']['tmdb_id'])
+            except Exception:
+                movie['url'] = ''
+
+            try:
+                movie['vote_average'] = m['info']['rating']['imdb'][0]
+            except Exception:
+                movie['vote_average'] = ''
+
+            try:
+                movie['imdbid'] = m['info']['imdb']
+            except Exception:
+                movie['imdbid'] = ''
+
+            try:
+                movie['id'] = m['info']['tmdb_id']
+            except Exception:
+                movie['id'] = ''
+
+            try:
+                movie['release_date'] = m['info']['released']
+            except Exception:
+                movie['release_date'] = ''
+
+            try:
+                movie['alternative_titles'] = {'titles': [{'iso_3166_1': 'US',
                                                        'title': ','.join(m['info']['titles'])
                                                        }]
                                            }
-            movie['release_dates'] = {'results': []}
+                movie['release_dates'] = {'results': []}
+
+            except Exception:
+                logging.debug('Skipped {}'.format(m['info']['original_title']))
 
             movies.append(movie)
 
